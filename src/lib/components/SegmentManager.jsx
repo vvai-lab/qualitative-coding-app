@@ -12,6 +12,8 @@ function SegmentManager() {
   const [isAutoCoding, setIsAutoCoding] = useState(false);
   const [autoCodeResults, setAutoCodeResults] = useState(null);
   const [apiKey, setApiKey] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState('all'); // 'all', 'incomplete', 'complete'
+  const [filteredSegmentIds, setFilteredSegmentIds] = useState([]); // Cached list of segment IDs for current filter
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -28,6 +30,11 @@ function SegmentManager() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Initialize filtered segments when filter changes or segments change
+  useEffect(() => {
+    updateFilteredSegments();
+  }, [segmentFilter, project.codedSegments.length]);
 
   // Filter codes based on search term
   const getFilteredCodes = () => {
@@ -71,6 +78,54 @@ function SegmentManager() {
       const code = project.codes.find(c => c.id === codeId);
       return code ? code.name : 'Unknown';
     }).join(', ');
+  };
+
+  // Calculate coding progress
+  const getCodingProgress = () => {
+    const totalSegments = project.codedSegments.length;
+    const codedSegments = project.codedSegments.filter(segment => 
+      segment.codeIds && segment.codeIds.length > 0
+    ).length;
+    const percentage = totalSegments > 0 ? Math.round((codedSegments / totalSegments) * 100) : 0;
+    
+    return {
+      coded: codedSegments,
+      total: totalSegments,
+      percentage
+    };
+  };
+
+  // Update filtered segment list based on current filter
+  const updateFilteredSegments = () => {
+    let filtered;
+    switch (segmentFilter) {
+      case 'incomplete':
+        filtered = project.codedSegments.filter(segment => 
+          !segment.codeIds || segment.codeIds.length === 0
+        );
+        break;
+      case 'complete':
+        filtered = project.codedSegments.filter(segment => 
+          segment.codeIds && segment.codeIds.length > 0
+        );
+        break;
+      default:
+        filtered = project.codedSegments;
+    }
+    setFilteredSegmentIds(filtered.map(s => s.id));
+  };
+
+  // Manual refresh function
+  const refreshFilter = () => {
+    updateFilteredSegments();
+  };
+
+  // Filter segments based on completion status (uses cached list)
+  const getFilteredSegments = () => {
+    // Use cached filtered list
+    return project.codedSegments.filter(segment => 
+      filteredSegmentIds.includes(segment.id)
+    );
   };
 
   const autoAssignCodes = async () => {
@@ -117,6 +172,9 @@ function SegmentManager() {
         method: apiKey.trim() ? 'OpenAI' : 'Rule-based'
       });
 
+      // Auto-refresh segment list after auto-coding
+      updateFilteredSegments();
+
     } catch (error) {
       console.error('Auto-coding error:', error);
       alert(`Auto-coding failed: ${error.message}`);
@@ -127,7 +185,25 @@ function SegmentManager() {
 
   return (
     <div className="p-0.5 bg-gray-50 text-xs flex flex-col h-full">
-      <h2 className="text-base font-semibold mb-0.5">Segments</h2>
+      <div className="flex items-center justify-between mb-0.5">
+        <h2 className="text-base font-semibold">Segments</h2>
+        {project.codedSegments.length > 0 && (
+          <div className="flex items-center space-x-2">
+            <div className="text-sm text-gray-600">
+              Progress: {getCodingProgress().coded}/{getCodingProgress().total}
+            </div>
+            <div className="w-16 bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${getCodingProgress().percentage}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-500">
+              {getCodingProgress().percentage}%
+            </div>
+          </div>
+        )}
+      </div>
       
       <CsvUpload 
         config={segmentMapperConfig}
@@ -173,11 +249,71 @@ function SegmentManager() {
           )}
         </div>
       )}
+       {/* Segment Filter */}
+      {project.codedSegments.length > 0 && (
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs text-gray-600 mr-2">Filter:</span>
+            <button
+              onClick={() => {
+                setSegmentFilter('all');
+              }}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                segmentFilter === 'all' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              All ({project.codedSegments.length})
+            </button>
+            <button
+              onClick={() => {
+                setSegmentFilter('incomplete');
+              }}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                segmentFilter === 'incomplete' 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Incomplete ({getCodingProgress().total - getCodingProgress().coded})
+            </button>
+            <button
+              onClick={() => {
+                setSegmentFilter('complete');
+              }}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                segmentFilter === 'complete' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Complete ({getCodingProgress().coded})
+            </button>
+          </div>
+          <button
+            onClick={refreshFilter}
+            className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border"
+            title="Refresh counts and filter results"
+          >
+            🔄 Refresh
+          </button>
+        </div>
+      )}
       
       <div className="flex flex-col flex-1 min-h-0">
         {project.codedSegments.length > 0 ? (
           <div className="bg-gray-50 rounded flex-1 min-h-0 overflow-y-auto p-1">
-            {project.codedSegments.map(segment => (
+            {getFilteredSegments().length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-gray-600 text-sm">
+                  {segmentFilter === 'incomplete' && 'All segments have been coded! 🎉'}
+                  {segmentFilter === 'complete' && 'No segments have been coded yet.'}
+                  {segmentFilter === 'all' && 'No segments available.'}
+                </p>
+              </div>
+            ) : (
+              getFilteredSegments().map(segment => (
               <div key={segment.id} className="mb-2 p-3 bg-white rounded shadow-sm hover:shadow-md transition-shadow">
                 <div className="mb-2">
                   <p className="text-sm whitespace-pre-wrap text-gray-800 leading-relaxed">
@@ -274,7 +410,8 @@ function SegmentManager() {
                   )}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">

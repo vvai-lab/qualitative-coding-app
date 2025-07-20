@@ -12,11 +12,12 @@ function CodeManager() {
   const [editingValue, setEditingValue] = useState('');
   const [addingNew, setAddingNew] = useState(false);
   const [newCode, setNewCode] = useState({ name: '', description: '', color: null });
+  const [previewColor, setPreviewColor] = useState(null); // Fixed preview color for new code
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Get preview color for new code (either selected or auto-assigned)
+  // Get preview color for new code (either selected or fixed auto-assigned)
   const getNewCodePreviewColor = () => {
-    return newCode.color || ColorGenerator.getColorForNewCode(project.codes);
+    return newCode.color || previewColor;
   };
 
   const handleAddNewCode = () => {
@@ -33,11 +34,13 @@ function CodeManager() {
       codes: [...project.codes, code],
     });
     setNewCode({ name: '', description: '', color: null });
+    setPreviewColor(null); // Reset preview color
     setAddingNew(false);
   };
 
   const cancelAddNew = () => {
     setNewCode({ name: '', description: '', color: null });
+    setPreviewColor(null); // Reset preview color
     setAddingNew(false);
   };
 
@@ -114,6 +117,12 @@ function CodeManager() {
       code.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (code.description && code.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+  };
+
+  // Start adding new code with fixed preview color
+  const startAddingNewCode = () => {
+    setAddingNew(true);
+    setPreviewColor(ColorGenerator.getColorForNewCode(project.codes));
   };
 
   return (
@@ -309,7 +318,7 @@ function CodeManager() {
                 ) : (
                   <li 
                     className="flex items-center p-2 bg-white rounded shadow-sm border-2 border-dashed border-gray-300 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors"
-                    onClick={() => setAddingNew(true)}
+                    onClick={startAddingNewCode}
                   >
                     <div className="flex items-center flex-1 text-gray-500 hover:text-blue-600">
                       <span className="inline-block w-4 h-4 rounded-full border-2 border-dashed border-gray-400 mr-2"></span>
