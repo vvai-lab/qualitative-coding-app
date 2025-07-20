@@ -27,15 +27,42 @@ function App() {
     setProject(newProject);
   };
 
+  const handleClearAll = () => {
+    const hasData = project.codes.length > 0 || project.codedSegments.length > 0;
+    
+    if (hasData) {
+      const confirmMessage = `This will delete all data:\n• ${project.codes.length} codes\n• ${project.codedSegments.length} segments\n\nThis action cannot be undone. Are you sure?`;
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+    }
+    
+    // Reset to empty project
+    const newProject = new Project();
+    ColorGenerator.initializeFromExistingCodes([]);
+    setProject(newProject);
+    
+    // Clear localStorage to ensure a completely fresh start
+    saveProject(newProject);
+  };
+
   return (
     <ProjectContext.Provider value={{ project, updateProject }}>
       <div className="h-screen bg-gray-100 p-1 overflow-hidden flex flex-col">
         <header className="bg-blue-700 text-white rounded shadow mb-2 px-3 py-2 flex items-center justify-between">
           <h1 className="text-lg font-semibold">Qualitative Coding App</h1>
           <div className="flex items-center space-x-2">
-            <div className="text-xs bg-blue-600 rounded px-2 py-1">
-              {project.codedSegments.length} segments • {project.codes.length} codes
-            </div>
+            <button
+              onClick={handleClearAll}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded flex items-center space-x-1 transition-colors"
+              title="Clear all codes and segments"
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" />
+              </svg>
+              <span>Clear All</span>
+            </button>
             <button
               onClick={() => {
                 // Create CSV content
