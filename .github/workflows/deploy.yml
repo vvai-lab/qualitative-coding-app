@@ -1,4 +1,9 @@
-name: Deploy to GitHub Pages
+1| name: Deploy to GitHub Pages
+2|
+3| permissions:
+4|   contents: write
+5|   pages: write
+6|   id-token: write
 
 on:
   push:
