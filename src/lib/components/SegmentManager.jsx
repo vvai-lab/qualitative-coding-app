@@ -1,12 +1,17 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { ProjectContext } from '../../App';
 import CsvUpload from './CsvUpload';
+import ApiKeySettings from './ApiKeySettings';
 import { segmentMapperConfig } from '../csvMapperConfigs.js';
+import { AutoCodingService } from '../autoCodingService.js';
 
 function SegmentManager() {
   const { project, updateProject } = useContext(ProjectContext);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAutoCoding, setIsAutoCoding] = useState(false);
+  const [autoCodeResults, setAutoCodeResults] = useState(null);
+  const [apiKey, setApiKey] = useState('');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -68,6 +73,58 @@ function SegmentManager() {
     }).join(', ');
   };
 
+  const autoAssignCodes = async () => {
+    if (project.codes.length === 0) {
+      alert('Please create some codes first before using auto-assignment.');
+      return;
+    }
+
+    if (project.codedSegments.length === 0) {
+      alert('No segments available to code.');
+      return;
+    }
+
+    setIsAutoCoding(true);
+    setAutoCodeResults(null);
+
+    try {
+      // Use the auto-coding service with the API key
+      const assignments = await AutoCodingService.assignCodes(project.codedSegments, project.codes, apiKey);
+
+      // Apply the assignments
+      const updatedSegments = project.codedSegments.map(segment => {
+        const assignedCodeNames = assignments[segment.id] || [];
+        const assignedCodeIds = assignedCodeNames
+          .map(codeName => project.codes.find(code => code.name === codeName))
+          .filter(code => code) // Remove null/undefined codes
+          .map(code => code.id);
+
+        return {
+          ...segment,
+          codeIds: assignedCodeIds,
+          codeId: assignedCodeIds[0] || null
+        };
+      });
+
+      updateProject({
+        ...project,
+        codedSegments: updatedSegments
+      });
+
+      setAutoCodeResults({
+        totalSegments: project.codedSegments.length,
+        codedSegments: updatedSegments.filter(s => s.codeIds && s.codeIds.length > 0).length,
+        method: apiKey.trim() ? 'OpenAI' : 'Rule-based'
+      });
+
+    } catch (error) {
+      console.error('Auto-coding error:', error);
+      alert(`Auto-coding failed: ${error.message}`);
+    } finally {
+      setIsAutoCoding(false);
+    }
+  };
+
   return (
     <div className="p-0.5 bg-gray-50 text-xs flex flex-col h-full">
       <h2 className="text-base font-semibold mb-0.5">Segments</h2>
@@ -77,6 +134,45 @@ function SegmentManager() {
         label="Import Segments from CSV"
         description="Upload CSV file with text segments"
       />
+      
+      {/* API Key Settings */}
+      <ApiKeySettings onApiKeyChange={setApiKey} />
+      
+      {/* Auto-coding section */}
+      {project.codes.length > 0 && project.codedSegments.length > 0 && (
+        <div className="mb-2 p-2 bg-blue-50 rounded border border-blue-200">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-blue-800">AI Auto-Coding</span>
+            <button
+              onClick={autoAssignCodes}
+              disabled={isAutoCoding}
+              className={`px-3 py-1 text-sm rounded transition-colors ${
+                isAutoCoding 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              {isAutoCoding ? 'Processing...' : (apiKey.trim() ? 'Auto-Assign (AI)' : 'Auto-Assign (Basic)')}
+            </button>
+          </div>
+          <p className="text-xs text-blue-600 mb-1">
+            {apiKey.trim() 
+              ? 'Using OpenAI GPT-3.5-turbo for intelligent code assignment.'
+              : 'Using rule-based matching. Set an OpenAI API key for better results.'
+            }
+          </p>
+          {autoCodeResults && (
+            <div className="text-xs text-green-700 bg-green-50 p-1 rounded">
+              ✓ Completed ({autoCodeResults.method}): {autoCodeResults.codedSegments} of {autoCodeResults.totalSegments} segments received codes
+              {autoCodeResults.method === 'Rule-based' && (
+                <div className="text-orange-600 mt-1">
+                  ⚠️ Used keyword matching. For better AI analysis, add an OpenAI API key above.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       
       <div className="flex flex-col flex-1 min-h-0">
         {project.codedSegments.length > 0 ? (

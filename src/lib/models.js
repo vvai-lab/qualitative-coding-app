@@ -1,9 +1,14 @@
 // src/lib/models.js
+import { ColorGenerator } from './colorGenerator.js';
+
 export class Project {
   constructor({ document = null, codes = [], codedSegments = [] } = {}) {
     this.document = document;
     this.codes = codes;
     this.codedSegments = codedSegments;
+    
+    // Initialize color tracking when creating a project
+    ColorGenerator.initializeFromExistingCodes(codes);
   }
 }
 
@@ -16,11 +21,13 @@ export class Document {
 }
 
 export class Code {
-  constructor({ id, name, description = '', color = '#cccccc' }) {
+  constructor({ id, name, description = '', color = null, existingCodes = [] }) {
     this.id = id;
     this.name = name;
     this.description = description;
-    this.color = color;
+    
+    // Auto-assign color if not provided
+    this.color = color || ColorGenerator.getColorForNewCode(existingCodes);
   }
 }
 

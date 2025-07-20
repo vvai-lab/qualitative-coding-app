@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext } from 'react';
 import { loadProject, saveProject } from './lib/localStorageService';
 import { Project } from './lib/models';
+import { ColorGenerator } from './lib/colorGenerator';
 import CodeManager from './lib/components/CodeManager';
 import DocumentDisplay from './lib/components/DocumentDisplay';
 import SegmentManager from './lib/components/SegmentManager';
@@ -10,7 +11,12 @@ export const ProjectContext = createContext(null);
 function App() {
   const [project, setProject] = useState(() => {
     const loadedProject = loadProject();
-    return loadedProject instanceof Project ? loadedProject : new Project();
+    const proj = loadedProject instanceof Project ? loadedProject : new Project();
+    
+    // Initialize color tracking for existing codes
+    ColorGenerator.initializeFromExistingCodes(proj.codes);
+    
+    return proj;
   });
 
   useEffect(() => {

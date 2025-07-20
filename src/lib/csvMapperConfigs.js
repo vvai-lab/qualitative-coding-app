@@ -5,7 +5,7 @@ export const codeMapperConfig = {
   fields: [
     { key: 'name', label: 'Name', optional: false },
     { key: 'description', label: 'Description', optional: true },
-    { key: 'color', label: 'Color', optional: true }
+    { key: 'color', label: 'Color (optional - auto-assigned if empty)', optional: true }
   ],
   autoMapPatterns: {
     name: ['name', 'code', 'title', 'label'],
@@ -17,17 +17,21 @@ export const codeMapperConfig = {
   createItem: (row, columnMapping, index, project) => {
     const name = row[columnMapping.name].trim();
     const description = columnMapping.description ? (row[columnMapping.description] || '').trim() : '';
-    let color = columnMapping.color ? (row[columnMapping.color] || '#cccccc') : '#cccccc';
+    let color = columnMapping.color ? (row[columnMapping.color] || '') : '';
 
     // Validate color format if provided
-    if (color && !color.startsWith('#')) {
-      if (/^[0-9A-Fa-f]{6}$/.test(color)) {
-        color = '#' + color;
-      } else if (/^[0-9A-Fa-f]{3}$/.test(color)) {
-        color = '#' + color;
-      } else {
-        color = '#cccccc'; // fallback to default
+    if (color && color.trim()) {
+      if (!color.startsWith('#')) {
+        if (/^[0-9A-Fa-f]{6}$/.test(color)) {
+          color = '#' + color;
+        } else if (/^[0-9A-Fa-f]{3}$/.test(color)) {
+          color = '#' + color;
+        } else {
+          color = null; // Invalid color, let auto-assignment handle it
+        }
       }
+    } else {
+      color = null; // No color provided, use auto-assignment
     }
 
     return new Code({
@@ -35,6 +39,7 @@ export const codeMapperConfig = {
       name: name,
       description: description,
       color: color,
+      existingCodes: project.codes
     });
   },
 
