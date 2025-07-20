@@ -14,6 +14,7 @@ function SegmentManager() {
   const [apiKey, setApiKey] = useState('');
   const [segmentFilter, setSegmentFilter] = useState('all'); // 'all', 'incomplete', 'complete'
   const [filteredSegmentIds, setFilteredSegmentIds] = useState([]); // Cached list of segment IDs for current filter
+  const [dropdownCodeList, setDropdownCodeList] = useState(null); // Static code list for open dropdown
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -22,6 +23,7 @@ function SegmentManager() {
       if (!event.target.closest('.dropdown-container')) {
         setOpenDropdown(null);
         setSearchTerm('');
+        setDropdownCodeList(null); // Clear cached dropdown list
       }
     };
 
@@ -43,6 +45,38 @@ function SegmentManager() {
       code.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (code.description && code.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+  };
+
+  // Get filtered codes sorted by assignment status (selected first)
+  const getFilteredAndSortedCodes = (segment) => {
+    const filtered = getFilteredCodes();
+    const assignedCodes = segment.codeIds || [];
+    
+    // Sort: assigned codes first, then unassigned codes
+    // Create a copy to avoid mutating the original array
+    return [...filtered].sort((a, b) => {
+      const aIsAssigned = assignedCodes.includes(a.id);
+      const bIsAssigned = assignedCodes.includes(b.id);
+      
+      if (aIsAssigned && !bIsAssigned) return -1; // a comes first
+      if (!aIsAssigned && bIsAssigned) return 1;  // b comes first
+      return 0; // maintain original order for codes with same assignment status
+    });
+  };
+
+  // Get the stable dropdown code list (set when dropdown opens, doesn't change until closed)
+  const getDropdownCodes = (segment) => {
+    if (dropdownCodeList) {
+      // Use cached list and filter by search term
+      const searchLower = searchTerm.toLowerCase();
+      if (!searchTerm.trim()) return dropdownCodeList;
+      return dropdownCodeList.filter(code => 
+        code.name.toLowerCase().includes(searchLower) ||
+        (code.description && code.description.toLowerCase().includes(searchLower))
+      );
+    }
+    // Fallback (shouldn't happen)
+    return getFilteredAndSortedCodes(segment);
   };
 
   const handleCodeToggle = (segmentId, codeId) => {
@@ -343,6 +377,14 @@ function SegmentManager() {
                       const newDropdownState = openDropdown === segment.id ? null : segment.id;
                       setOpenDropdown(newDropdownState);
                       setSearchTerm(''); // Clear search when opening/closing dropdown
+                      
+                      if (newDropdownState === segment.id) {
+                        // Opening dropdown - capture current code list
+                        setDropdownCodeList(getFilteredAndSortedCodes(segment));
+                      } else {
+                        // Closing dropdown - clear cached list
+                        setDropdownCodeList(null);
+                      }
                     }}
                     className="w-full text-left text-sm p-2 border rounded bg-gray-50 hover:bg-gray-100 flex justify-between items-center transition-colors"
                   >
@@ -378,7 +420,7 @@ function SegmentManager() {
                                 No codes match your search.
                               </div>
                             ) : (
-                              getFilteredCodes().map(code => {
+                              getDropdownCodes(segment).map(code => {
                                 const isAssigned = (segment.codeIds || []).includes(code.id);
                                 return (
                                   <label
