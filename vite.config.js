@@ -9,5 +9,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+  },
+  server: {
+    origin: 'http://localhost:5173',
   }
 })

@@ -15,6 +15,7 @@ function SegmentManager() {
   const [segmentFilter, setSegmentFilter] = useState('all'); // 'all', 'incomplete', 'complete'
   const [filteredSegmentIds, setFilteredSegmentIds] = useState([]); // Cached list of segment IDs for current filter
   const [dropdownCodeList, setDropdownCodeList] = useState(null); // Static code list for open dropdown
+  const [costEstimate, setCostEstimate] = useState(null); // Cost estimation for API usage
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -37,6 +38,16 @@ function SegmentManager() {
   useEffect(() => {
     updateFilteredSegments();
   }, [segmentFilter, project.codedSegments.length]);
+
+  // Update cost estimate when API key, segments, or codes change
+  useEffect(() => {
+    if (apiKey?.trim() && project.codedSegments.length > 0 && project.codes.length > 0) {
+      const estimate = AutoCodingService.estimateCost(project.codedSegments, project.codes);
+      setCostEstimate(estimate);
+    } else {
+      setCostEstimate(null);
+    }
+  }, [apiKey, project.codedSegments.length, project.codes.length]);
 
   // Filter codes based on search term
   const getFilteredCodes = () => {
@@ -173,12 +184,19 @@ function SegmentManager() {
       return;
     }
 
+    if (!apiKey || !apiKey.trim()) {
+      alert('Please enter an OpenAI API key to use auto-coding.');
+      return;
+    }
+
     setIsAutoCoding(true);
     setAutoCodeResults(null);
 
     try {
       // Use the auto-coding service with the API key
-      const assignments = await AutoCodingService.assignCodes(project.codedSegments, project.codes, apiKey);
+      const result = await AutoCodingService.assignCodes(project.codedSegments, project.codes, apiKey);
+      const assignments = result.assignments;
+      const usage = result.usage;
 
       // Apply the assignments
       const updatedSegments = project.codedSegments.map(segment => {
@@ -203,7 +221,8 @@ function SegmentManager() {
       setAutoCodeResults({
         totalSegments: project.codedSegments.length,
         codedSegments: updatedSegments.filter(s => s.codeIds && s.codeIds.length > 0).length,
-        method: apiKey.trim() ? 'OpenAI' : 'Rule-based'
+        method: 'OpenAI',
+        usage
       });
 
       // Auto-refresh segment list after auto-coding
@@ -255,28 +274,57 @@ function SegmentManager() {
             <span className="text-sm font-medium text-blue-800">AI Auto-Coding</span>
             <button
               onClick={autoAssignCodes}
-              disabled={isAutoCoding}
+              disabled={isAutoCoding || !apiKey?.trim()}
               className={`px-3 py-1 text-sm rounded transition-colors ${
-                isAutoCoding 
+                isAutoCoding || !apiKey?.trim()
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {isAutoCoding ? 'Processing...' : (apiKey.trim() ? 'Auto-Assign (AI)' : 'Auto-Assign (Basic)')}
+              {isAutoCoding ? 'Processing...' : 'Auto-Assign with AI'}
             </button>
           </div>
-          <p className="text-xs text-blue-600 mb-1">
-            {apiKey.trim() 
-              ? 'Using OpenAI GPT-3.5-turbo for intelligent code assignment.'
-              : 'Using rule-based matching. Set an OpenAI API key for better results.'
-            }
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-blue-600">
+              {apiKey?.trim() 
+                ? 'Ready to use OpenAI GPT-3.5-turbo for intelligent code assignment.'
+                : 'Enter an OpenAI API key above to enable AI auto-coding.'
+              }
+            </p>
+            {costEstimate && (
+              <div className="text-xs text-gray-600 bg-yellow-50 p-1 rounded border border-yellow-200">
+                <div className="font-medium text-yellow-800 mb-1">💰 Estimated API Cost:</div>
+                <div className="flex justify-between items-center">
+                  <span>
+                    {costEstimate.segments} segments × {costEstimate.codes} codes
+                  </span>
+                  <span className="font-mono font-medium text-green-700">
+                    ~${costEstimate.totalCost.toFixed(4)} USD
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1 leading-tight">
+                  Input: ~{costEstimate.inputTokens.toLocaleString()} tokens (${costEstimate.inputCost.toFixed(4)}) + 
+                  Output: ~{costEstimate.estimatedOutputTokens.toLocaleString()} tokens (${costEstimate.outputCost.toFixed(4)})
+                </div>
+                <div className="text-xs text-amber-600 mt-1">
+                  ⚠️ Estimate only - actual cost may vary slightly
+                </div>
+              </div>
+            )}
+          </div>
           {autoCodeResults && (
-            <div className="text-xs text-green-700 bg-green-50 p-1 rounded">
-              ✓ Completed ({autoCodeResults.method}): {autoCodeResults.codedSegments} of {autoCodeResults.totalSegments} segments received codes
-              {autoCodeResults.method === 'Rule-based' && (
-                <div className="text-orange-600 mt-1">
-                  ⚠️ Used keyword matching. For better AI analysis, add an OpenAI API key above.
+            <div className="text-xs text-green-700 bg-green-50 p-1 rounded space-y-1">
+              <div>✓ Completed: {autoCodeResults.codedSegments} of {autoCodeResults.totalSegments} segments received codes using AI analysis</div>
+              {autoCodeResults.usage?.actualCost ? (
+                <div className="text-green-600 bg-white p-1 rounded border">
+                  <div className="font-medium">💰 Actual API Cost: ${autoCodeResults.usage.actualCost.toFixed(4)} USD</div>
+                  <div className="text-xs text-gray-600">
+                    {autoCodeResults.usage.promptTokens?.toLocaleString()} input + {autoCodeResults.usage.completionTokens?.toLocaleString()} output tokens = {autoCodeResults.usage.totalTokens?.toLocaleString()} total
+                  </div>
+                </div>
+              ) : costEstimate && (
+                <div className="text-yellow-600 text-xs">
+                  Expected cost was ~${costEstimate.totalCost.toFixed(4)} USD
                 </div>
               )}
             </div>

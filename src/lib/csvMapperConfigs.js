@@ -5,11 +5,15 @@ export const codeMapperConfig = {
   fields: [
     { key: 'name', label: 'Name', optional: false },
     { key: 'description', label: 'Description', optional: true },
+    { key: 'inclusion', label: 'Inclusion Criteria', optional: true },
+    { key: 'exclusion', label: 'Exclusion Criteria', optional: true },
     { key: 'color', label: 'Color (optional - auto-assigned if empty)', optional: true }
   ],
   autoMapPatterns: {
     name: ['name', 'code', 'title', 'label'],
     description: ['description', 'desc', 'definition', 'meaning'],
+    inclusion: ['inclusion', 'include', 'when to use', 'apply when', 'criteria for'],
+    exclusion: ['exclusion', 'exclude', 'when not to use', 'do not apply', 'avoid when'],
     color: ['color', 'colour', 'hex', 'background']
   },
   requiredFields: ['name'],
@@ -17,6 +21,8 @@ export const codeMapperConfig = {
   createItem: (row, columnMapping, index, project) => {
     const name = row[columnMapping.name].trim();
     const description = columnMapping.description ? (row[columnMapping.description] || '').trim() : '';
+    const inclusion = columnMapping.inclusion ? (row[columnMapping.inclusion] || '').trim() : '';
+    const exclusion = columnMapping.exclusion ? (row[columnMapping.exclusion] || '').trim() : '';
     let color = columnMapping.color ? (row[columnMapping.color] || '') : '';
 
     // Validate color format if provided
@@ -38,6 +44,8 @@ export const codeMapperConfig = {
       id: `code-${Date.now()}-${index}`,
       name: name,
       description: description,
+      inclusion: inclusion,
+      exclusion: exclusion,
       color: color,
       existingCodes: project.codes
     });

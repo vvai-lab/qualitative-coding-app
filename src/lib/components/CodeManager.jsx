@@ -26,6 +26,8 @@ function CodeManager() {
       id: Date.now().toString(),
       name: newCode.name.trim(),
       description: newCode.description.trim(),
+      inclusion: newCode.inclusion.trim(),
+      exclusion: newCode.exclusion.trim(),
       color: newCode.color, // Use selected color or null for auto-assignment
       existingCodes: project.codes
     });
@@ -33,13 +35,13 @@ function CodeManager() {
       ...project,
       codes: [...project.codes, code],
     });
-    setNewCode({ name: '', description: '', color: null });
+    setNewCode({ name: '', description: '', inclusion: '', exclusion: '', color: null });
     setPreviewColor(null); // Reset preview color
     setAddingNew(false);
   };
 
   const cancelAddNew = () => {
-    setNewCode({ name: '', description: '', color: null });
+    setNewCode({ name: '', description: '', inclusion: '', exclusion: '', color: null });
     setPreviewColor(null); // Reset preview color
     setAddingNew(false);
   };
@@ -115,7 +117,9 @@ function CodeManager() {
     if (!searchTerm.trim()) return project.codes;
     return project.codes.filter(code => 
       code.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (code.description && code.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      (code.description && code.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (code.inclusion && code.inclusion.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (code.exclusion && code.exclusion.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   };
 
@@ -210,8 +214,26 @@ function CodeManager() {
                           value={newCode.description}
                           onChange={(e) => setNewCode({ ...newCode, description: e.target.value })}
                           onKeyDown={handleKeyPress}
-                          className="text-sm text-gray-600 border rounded px-1 py-0.5 w-full"
+                          className="text-sm text-gray-600 border rounded px-1 py-0.5 w-full mb-0.5"
                           placeholder="Description (optional)"
+                        />
+                        {/* Inclusion criteria input */}
+                        <input
+                          type="text"
+                          value={newCode.inclusion}
+                          onChange={(e) => setNewCode({ ...newCode, inclusion: e.target.value })}
+                          onKeyDown={handleKeyPress}
+                          className="text-sm text-green-700 border rounded px-1 py-0.5 w-full mb-0.5"
+                          placeholder="Inclusion criteria (optional)"
+                        />
+                        {/* Exclusion criteria input */}
+                        <input
+                          type="text"
+                          value={newCode.exclusion}
+                          onChange={(e) => setNewCode({ ...newCode, exclusion: e.target.value })}
+                          onKeyDown={handleKeyPress}
+                          className="text-sm text-red-700 border rounded px-1 py-0.5 w-full"
+                          placeholder="Exclusion criteria (optional)"
                         />
                       </div>
                     </div>
@@ -251,7 +273,7 @@ function CodeManager() {
             {getFilteredCodes().map((code) => (
               <li
                 key={code.id}
-                className="flex items-center justify-between p-2 bg-white rounded shadow-sm hover:shadow-md transition-shadow"
+                className="group flex items-center justify-between p-2 bg-white rounded shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center flex-1">
                   {/* Clickable color dot */}
@@ -272,29 +294,69 @@ function CodeManager() {
                   </div>
                   
                   <div className="flex-1">
-                    {/* Editable name */}
-                    {editingCodeId === code.id && editingField === 'name' ? (
-                      <input
-                        type="text"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={saveEdit}
-                        onKeyDown={handleKeyPress}
-                        className="font-semibold text-sm border rounded px-1 py-0.5 w-full"
-                        autoFocus
-                      />
-                    ) : (
-                      <span
-                        className="font-semibold text-sm cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
-                        onDoubleClick={() => startEditing(code.id, 'name', code.name)}
-                        title="Double-click to edit"
-                      >
-                        {code.name}
-                      </span>
-                    )}
+                    <div className="flex items-center justify-between">
+                      {/* Editable name */}
+                      {editingCodeId === code.id && editingField === 'name' ? (
+                        <input
+                          type="text"
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={saveEdit}
+                          onKeyDown={handleKeyPress}
+                          className="font-semibold text-sm border rounded px-1 py-0.5 w-full"
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="font-semibold text-sm cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded flex-1"
+                          onDoubleClick={() => startEditing(code.id, 'name', code.name)}
+                          title="Double-click to edit"
+                        >
+                          {code.name}
+                        </span>
+                      )}
+                      
+                      {/* Add field dropdown for missing optional fields */}
+                      {(!code.description || !code.inclusion || !code.exclusion) && (
+                        <div className="relative group">
+                          <button
+                            className="text-gray-400 hover:text-gray-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                            title="Add optional field"
+                          >
+                            +
+                          </button>
+                          <div className="absolute right-0 mt-1 py-1 bg-white border rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 min-w-max">
+                            {!code.description && (
+                              <button
+                                onClick={() => startEditing(code.id, 'description', '')}
+                                className="block px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 w-full text-left"
+                              >
+                                Add description
+                              </button>
+                            )}
+                            {!code.inclusion && (
+                              <button
+                                onClick={() => startEditing(code.id, 'inclusion', '')}
+                                className="block px-3 py-1 text-xs text-green-700 hover:bg-gray-100 w-full text-left"
+                              >
+                                Add inclusion criteria
+                              </button>
+                            )}
+                            {!code.exclusion && (
+                              <button
+                                onClick={() => startEditing(code.id, 'exclusion', '')}
+                                className="block px-3 py-1 text-xs text-red-700 hover:bg-gray-100 w-full text-left"
+                              >
+                                Add exclusion criteria
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     
-                    {/* Editable description */}
-                    {editingCodeId === code.id && editingField === 'description' ? (
+                    {/* Editable description - only show if has value or is being edited */}
+                    {(editingCodeId === code.id && editingField === 'description') ? (
                       <input
                         type="text"
                         value={editingValue}
@@ -305,15 +367,59 @@ function CodeManager() {
                         placeholder="Description (optional)"
                         autoFocus
                       />
-                    ) : (
+                    ) : code.description ? (
                       <span
                         className="text-sm text-gray-600 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded block"
                         onDoubleClick={() => startEditing(code.id, 'description', code.description || '')}
                         title="Double-click to edit description"
                       >
-                        {code.description ? `(${code.description})` : '(click to add description)'}
+                        ({code.description})
                       </span>
-                    )}
+                    ) : null}
+
+                    {/* Editable inclusion criteria - only show if has value or is being edited */}
+                    {(editingCodeId === code.id && editingField === 'inclusion') ? (
+                      <input
+                        type="text"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={handleKeyPress}
+                        className="text-sm text-green-700 border rounded px-1 py-0.5 w-full mt-0.5"
+                        placeholder="Inclusion criteria (optional)"
+                        autoFocus
+                      />
+                    ) : code.inclusion ? (
+                      <span
+                        className="text-sm text-green-700 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded block"
+                        onDoubleClick={() => startEditing(code.id, 'inclusion', code.inclusion || '')}
+                        title="Double-click to edit inclusion criteria"
+                      >
+                        Include: {code.inclusion}
+                      </span>
+                    ) : null}
+
+                    {/* Editable exclusion criteria - only show if has value or is being edited */}
+                    {(editingCodeId === code.id && editingField === 'exclusion') ? (
+                      <input
+                        type="text"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={handleKeyPress}
+                        className="text-sm text-red-700 border rounded px-1 py-0.5 w-full mt-0.5"
+                        placeholder="Exclusion criteria (optional)"
+                        autoFocus
+                      />
+                    ) : code.exclusion ? (
+                      <span
+                        className="text-sm text-red-700 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded block"
+                        onDoubleClick={() => startEditing(code.id, 'exclusion', code.exclusion || '')}
+                        title="Double-click to edit exclusion criteria"
+                      >
+                        Exclude: {code.exclusion}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 

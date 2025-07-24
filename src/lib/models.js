@@ -21,10 +21,12 @@ export class Document {
 }
 
 export class Code {
-  constructor({ id, name, description = '', color = null, existingCodes = [] }) {
+  constructor({ id, name, description = '', inclusion = '', exclusion = '', color = null, existingCodes = [] }) {
     this.id = id;
     this.name = name;
     this.description = description;
+    this.inclusion = inclusion;
+    this.exclusion = exclusion;
     
     // Auto-assign color if not provided
     this.color = color || ColorGenerator.getColorForNewCode(existingCodes);
